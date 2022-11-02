@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"math/rand"
 	"runtime"
 	"strings"
 	"time"
@@ -13,7 +12,7 @@ import (
 )
 
 const (
-	width  = 1000
+	width  = 1600
 	height = 800
 
 	vertexShaderSource = `
@@ -32,11 +31,9 @@ const (
 		}
 	` + "\x00"
 
-	rows    = 100
-	columns = 100
-
-	threshold = 0.15
-	fps       = 50
+	rows    = 140
+	columns = 280
+	fps     = 2
 )
 
 var (
@@ -54,12 +51,11 @@ var (
 type cell struct {
 	drawable uint32
 
-	alive     bool
-	aliveNext bool
-
 	x int
 	y int
 }
+
+
 
 func main() {
 	runtime.LockOSThread()
@@ -69,28 +65,33 @@ func main() {
 	program := initOpenGL()
 
 	cells := makeCells()
-	for !window.ShouldClose() {
-		t := time.Now()
 
-		for x := range cells {
-			for _, c := range cells[x] {
-				c.checkState(cells)
-			}
+	for !window.ShouldClose() {
+
+		for i := 0; i < 100; i++ {
+			t := time.Now()
+			draw(cells, i, 70, window, program)
+			time.Sleep(time.Second/time.Duration(fps) - time.Since(t))
 		}
 
-		draw(cells, window, program)
-
-		time.Sleep(time.Second/time.Duration(fps) - time.Since(t))
 	}
 }
 
-func draw(cells [][]*cell, window *glfw.Window, program uint32) {
+func draw(cells [][]*cell, x, y int, window *glfw.Window, program uint32) {
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 	gl.UseProgram(program)
 
-	for x := range cells {
-		for _, c := range cells[x] {
-			c.draw()
+	// draw the obstacle
+	for i := 0; i < 10; i++ {
+		for j := 0; j < 10; j++ {
+			cells[i+100][j+65].draw()
+		}
+	}
+
+	// draw the robots
+	for i := 0; i < 10; i = i + 3 {
+		for j := 0; j < 10; j = j + 3 {
+			cells[x+i][y+j].draw()
 		}
 	}
 
@@ -99,22 +100,17 @@ func draw(cells [][]*cell, window *glfw.Window, program uint32) {
 }
 
 func makeCells() [][]*cell {
-	rand.Seed(time.Now().UnixNano())
-
 	cells := make([][]*cell, rows, rows)
 	for x := 0; x < rows; x++ {
 		for y := 0; y < columns; y++ {
 			c := newCell(x, y)
-
-			c.alive = rand.Float64() < threshold
-			c.aliveNext = c.alive
-
 			cells[x] = append(cells[x], c)
 		}
 	}
 
 	return cells
 }
+
 func newCell(x, y int) *cell {
 	points := make([]float32, len(square), len(square))
 	copy(points, square)
@@ -149,74 +145,8 @@ func newCell(x, y int) *cell {
 }
 
 func (c *cell) draw() {
-	if !c.alive {
-		return
-	}
-
 	gl.BindVertexArray(c.drawable)
 	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(square)/3))
-}
-
-// checkState determines the state of the cell for the next tick of the game.
-func (c *cell) checkState(cells [][]*cell) {
-	c.alive = c.aliveNext
-	c.aliveNext = c.alive
-
-	liveCount := c.liveNeighbors(cells)
-	if c.alive {
-		// 1. Any live cell with fewer than two live neighbours dies, as if caused by underpopulation.
-		if liveCount < 2 {
-			c.aliveNext = false
-		}
-
-		// 2. Any live cell with two or three live neighbours lives on to the next generation.
-		if liveCount == 2 || liveCount == 3 {
-			c.aliveNext = true
-		}
-
-		// 3. Any live cell with more than three live neighbours dies, as if by overpopulation.
-		if liveCount > 3 {
-			c.aliveNext = false
-		}
-	} else {
-		// 4. Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
-		if liveCount == 3 {
-			c.aliveNext = true
-		}
-	}
-}
-
-// liveNeighbors returns the number of live neighbors for a cell.
-func (c *cell) liveNeighbors(cells [][]*cell) int {
-	var liveCount int
-	add := func(x, y int) {
-		// If we're at an edge, check the other side of the board.
-		if x == len(cells) {
-			x = 0
-		} else if x == -1 {
-			x = len(cells) - 1
-		}
-		if y == len(cells[x]) {
-			y = 0
-		} else if y == -1 {
-			y = len(cells[x]) - 1
-		}
-
-		if cells[x][y].alive {
-			liveCount++
-		}
-	}
-
-	add(c.x-1, c.y)   // To the left
-	add(c.x+1, c.y)   // To the right
-	add(c.x, c.y+1)   // up
-	add(c.x, c.y-1)   // down
-	add(c.x-1, c.y+1) // top-left
-	add(c.x+1, c.y+1) // top-right
-	add(c.x-1, c.y-1) // bottom-left
-	add(c.x+1, c.y-1) // bottom-right
-
-	return liveCount
 }
 
 // initGlfw initializes glfw and returns a Window to use.
@@ -230,7 +160,7 @@ func initGlfw() *glfw.Window {
 	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
 	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
 
-	window, err := glfw.CreateWindow(width, height, "Conway's Game of Life", nil, nil)
+	window, err := glfw.CreateWindow(width, height, "Robot Swarm Simulation", nil, nil)
 	if err != nil {
 		panic(err)
 	}
