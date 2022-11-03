@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"runtime"
 	"strings"
 	"time"
@@ -33,7 +34,7 @@ const (
 
 	rows    = 140
 	columns = 280
-	fps     = 2
+	fps     = 10
 )
 
 var (
@@ -55,7 +56,10 @@ type cell struct {
 	y int
 }
 
-
+type robot struct {
+	x int
+	y int
+}
 
 func main() {
 	runtime.LockOSThread()
@@ -66,18 +70,59 @@ func main() {
 
 	cells := makeCells()
 
-	for !window.ShouldClose() {
+	var rob [100]robot
 
-		for i := 0; i < 100; i++ {
-			t := time.Now()
-			draw(cells, i, 70, window, program)
-			time.Sleep(time.Second/time.Duration(fps) - time.Since(t))
-		}
+	for i := 0; i < 10; i++ {
+		rob[i].x = 100
+		rob[i].y = 100
+	}
+
+	for !window.ShouldClose() {
+		t := time.Now()
+		draw(cells, rob, window, program)
+		time.Sleep(time.Second/time.Duration(fps) - time.Since(t))
 
 	}
 }
 
-func draw(cells [][]*cell, x, y int, window *glfw.Window, program uint32) {
+func move(cells [][]*cell, rob [100]robot, x, y int) {
+	// draw the robots
+	// for i := 0; i < 10; i = i + 3 {
+	// 	for j := 0; j < 10; j = j + 3 {
+	// 		cells[x+i][y+j].draw()
+	// 	}
+	// }
+
+	swing := rand.Intn(7)
+	switch swing {
+	case 0:
+		rob[0].x++
+		rob[0].y++
+	case 1:
+		rob[0].y++
+	case 2:
+		rob[0].x++
+		rob[0].y++
+	case 3:
+		rob[0].x--
+	case 4:
+		rob[0].x++
+	case 5:
+		rob[0].x--
+		rob[0].y--
+	case 6:
+		rob[0].y--
+	case 7:
+		rob[0].x++
+		rob[0].y--
+	}
+
+	for i := 0; i < 10; i++ {
+		cells[rob[i].x][rob[i].y].draw()
+	}
+}
+
+func draw(cells [][]*cell, rob [100]robot, window *glfw.Window, program uint32) {
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 	gl.UseProgram(program)
 
@@ -88,12 +133,7 @@ func draw(cells [][]*cell, x, y int, window *glfw.Window, program uint32) {
 		}
 	}
 
-	// draw the robots
-	for i := 0; i < 10; i = i + 3 {
-		for j := 0; j < 10; j = j + 3 {
-			cells[x+i][y+j].draw()
-		}
-	}
+	move(cells, rob, 10, 10)
 
 	glfw.PollEvents()
 	window.SwapBuffers()
